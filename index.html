@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E9EAE4">
+<title>Checklist da mudança</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E9EAE4; --surface:#FBFBF9; --ink:#1E2622; --muted:#6B7269; --line:#D4D6CE;
+    --accent:#1F4FA3; --done:#3C7A4E; --p1:#C1392B; --p2:#B5811F; --p3:#5E7A6B; --radius:10px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;
+    font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent;padding-bottom:64px}
+  .wrap{max-width:720px;margin:0 auto;padding:0 16px}
+
+  header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line);
+    padding-top:env(safe-area-inset-top)}
+  .head-in{display:flex;align-items:baseline;gap:12px;padding:14px 0 10px}
+  h1{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;font-size:20px;
+    letter-spacing:-.02em;margin:0;flex:1}
+  .score{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;font-size:22px;
+    letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  .score small{font-size:13px;font-weight:600;color:var(--muted)}
+  .bar{height:6px;background:#DCDED6;border-radius:99px;overflow:hidden}
+  .bar > i{display:block;height:100%;width:0;background:var(--done);transition:width .35s ease}
+  .filters{display:flex;gap:6px;padding:10px 0 12px;overflow-x:auto;scrollbar-width:none}
+  .filters::-webkit-scrollbar{display:none}
+  .chip{border:1px solid var(--line);background:var(--surface);color:var(--muted);font:inherit;
+    font-size:13px;font-weight:500;padding:6px 12px;border-radius:99px;white-space:nowrap;cursor:pointer}
+  .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+
+  section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    margin:12px 0;overflow:hidden}
+  .sec-head{width:100%;display:flex;align-items:center;gap:10px;background:none;border:0;font:inherit;
+    text-align:left;padding:13px 14px;cursor:pointer;color:inherit}
+  .sec-head h2{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:600;font-size:16px;
+    margin:0;flex:1;letter-spacing:-.01em}
+  .sec-count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .caret{color:var(--muted);transition:transform .2s ease;font-size:12px}
+  section.closed .caret{transform:rotate(-90deg)}
+  section.closed .list, section.closed .add{display:none}
+  .sec-bar{height:2px;background:#E4E6DE}
+  .sec-bar > i{display:block;height:100%;background:var(--done);transition:width .3s ease}
+
+  ul{list-style:none;margin:0;padding:0}
+  li{border-top:1px solid var(--line)}
+  label.item{display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer}
+  label.item input{position:absolute;opacity:0;width:0;height:0}
+  .box{flex:none;width:22px;height:22px;border:1.5px solid #A9AEA4;border-radius:6px;background:#fff;
+    display:grid;place-items:center;transition:background .15s,border-color .15s}
+  .box svg{width:14px;height:14px;stroke:#fff;stroke-width:3;fill:none;stroke-dasharray:20;
+    stroke-dashoffset:20;transition:stroke-dashoffset .18s ease}
+  input:checked + .box{background:var(--done);border-color:var(--done)}
+  input:checked + .box svg{stroke-dashoffset:0}
+  input:focus-visible + .box{outline:2px solid var(--accent);outline-offset:2px}
+  .txt{flex:1;transition:color .15s}
+  input:checked ~ .txt{color:#9AA096;text-decoration:line-through;text-decoration-color:#C6CABF}
+  .tag{flex:none;font-size:11px;font-weight:600;padding:2px 7px;border-radius:5px;border:1px solid currentColor}
+  .tag.p1{color:var(--p1)} .tag.p2{color:var(--p2)} .tag.p3{color:var(--p3)}
+  .del{flex:none;border:0;background:none;color:#B0B5AB;font:inherit;font-size:18px;line-height:1;
+    padding:4px 6px;cursor:pointer;border-radius:6px}
+  .del:hover{color:var(--p1);background:#F2E7E5}
+
+  .add{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line);background:#F6F6F2}
+  .add input{flex:1;min-width:0;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);
+    border-radius:8px;background:#fff;color:inherit}
+  .add input:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+  .add button{font:inherit;font-size:14px;font-weight:600;padding:8px 14px;border-radius:8px;
+    border:1px solid var(--ink);background:var(--ink);color:#fff;cursor:pointer}
+
+  .empty{padding:14px;color:var(--muted);font-size:14px}
+  footer{padding:18px 0 8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  footer p{margin:0;flex:1;min-width:200px;font-size:13px;color:var(--muted)}
+  .reset{font:inherit;font-size:13px;font-weight:500;color:var(--p1);background:none;
+    border:1px solid #DCC3BF;border-radius:8px;padding:7px 12px;cursor:pointer}
+
+  .sync{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);padding-bottom:10px}
+  .dot{width:7px;height:7px;border-radius:99px;background:var(--muted);flex:none}
+  .sync.ok .dot{background:var(--done)} .sync.ok{color:var(--done)}
+  .sync.busy .dot{background:var(--accent)} .sync.busy{color:var(--accent)}
+  .sync.off .dot{background:var(--p1)} .sync.off{color:var(--p1)}
+  .sync button{margin-left:auto;font:inherit;font-size:13px;color:var(--accent);background:none;
+    border:0;padding:2px 4px;cursor:pointer;text-decoration:underline}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="head-in">
+      <h1>Checklist da mudança</h1>
+      <div class="score"><span id="done">0</span><small>/<span id="total">0</span></small></div>
+    </div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="filters" id="filters">
+      <button class="chip" data-f="all" aria-pressed="true">Tudo</button>
+      <button class="chip" data-f="todo" aria-pressed="false">Falta</button>
+      <button class="chip" data-f="p1" aria-pressed="false">Antes de mudar</button>
+      <button class="chip" data-f="p2" aria-pressed="false">Primeiro mês</button>
+      <button class="chip" data-f="p3" aria-pressed="false">Depois</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="sync" id="sync"><span class="dot"></span><span id="syncTxt">Conectando…</span>
+    <button id="syncNow">Sincronizar</button></div>
+</div>
+
+<main class="wrap" id="app"></main>
+
+<div class="wrap">
+  <footer>
+    <p>Marcado num aparelho, aparece nos outros.</p>
+    <button class="reset" id="reset">Limpar tudo</button>
+  </footer>
+</div>
+
+<script>
+const LKEY = "mudanca.v2";
+const PINKEY = "mudanca.pin";
+
+const DATA = [
+  { id:"quarto", name:"Quarto", items:[
+    ["cama","Cama","p1",1],["colchao","Colchão","p1",1],["guarda","Guarda-roupa","p1",1],
+    ["cortina","Cortina","p2",1],["roupacama","Roupa de cama","p1",1],["ventilador","Ventilador","p2",1],
+    ["travesseiro","Travesseiros","p1",0],["cobertor","Cobertor / edredom","p2",0],
+    ["cabides","Cabides","p2",0],["lixeiraq","Lixeira","p2",0]
+  ]},
+  { id:"cozinha", name:"Cozinha", items:[
+    ["cooktop","Cooktop","p1",1],["panelas","Panelas","p1",1],["pratos","Pratos","p1",1],
+    ["copos","Copos","p1",1],["talheres","Talheres","p1",1],["filtro","Filtro / purificador","p1",1],
+    ["batedeira","Batedeira","p3",1],["toalhamesa","Toalha de mesa","p3",1],
+    ["geladeira","Geladeira","p1",0],
+    ["gas","Botijão + regulador + mangueira","p1",0],["acendedor","Acendedor / fósforo","p1",0],
+    ["faca","Faca de cozinha","p1",0],["tabua","Tábua de corte","p1",0],
+    ["colherpau","Colher de pau / espátula","p1",0],["concha","Concha","p2",0],
+    ["pegador","Pegador","p3",0],["escorredor","Escorredor de louça","p2",0],
+    ["potes","Potes para guardar comida","p2",0],["panosprato","Panos de prato","p1",0],
+    ["esponjac","Esponjas","p1",0],["detergentec","Detergente","p1",0],
+    ["lixeirac","Lixeira de cozinha","p1",0],["sacoslixoc","Sacos de lixo","p1",0],
+    ["abridor","Abridor de lata / garrafa","p2",0],["descanso","Descanso de panela","p3",0],
+    ["jarra","Jarra / garrafa de água","p2",0],["assadeira","Forma / assadeira","p3",0]
+  ]},
+  { id:"limpeza", name:"Limpeza", items:[
+    ["vassoura","Vassoura","p1",1],["rodo","Rodo","p1",1],["pa","Pá","p1",1],
+    ["balde","Balde","p1",0],["panoschao","Panos de chão","p1",0],
+    ["panosmulti","Panos multiuso","p2",0],["esponjal","Esponja","p1",0],
+    ["luvas","Luvas","p2",0],["detergentel","Detergente","p1",0],
+    ["desinfetante","Desinfetante","p1",0],["aguasanitaria","Água sanitária","p1",0],
+    ["multiuso","Limpador multiuso","p1",0],["sabaopo","Sabão em pó / líquido","p2",0],
+    ["sacoslixo","Sacos de lixo","p1",0],["lixeiras","Lixeiras","p1",0],["mop","Mop","p3",0]
+  ]},
+  { id:"banheiro", name:"Banheiro", items:[
+    ["assentos","Assentos sanitários (2)","p1",1],["chuveiro","Chuveiro","p1",1],
+    ["toalhas","Toalhas de banho","p1",1],
+    ["papel","Papel higiênico","p1",0],["lixeirab","Lixeira","p1",0],
+    ["escovasan","Escova sanitária","p1",0],["sabonete","Sabonete","p1",0],
+    ["shampoo","Shampoo","p1",0],["pasta","Pasta de dente","p1",0],
+    ["escovadentes","Escova de dentes","p1",0],["limpezab","Produtos de limpeza do banheiro","p1",0],
+    ["tapeteb","Tapete de banheiro","p2",0],["suporte","Suporte para shampoo / sabonete","p3",0]
+  ]},
+  { id:"lavanderia", name:"Lavanderia", items:[
+    ["varal","Varal","p1",0],["pregadores","Pregadores","p1",0],["baldel","Balde","p1",0],
+    ["sabaoroupa","Sabão para roupas","p1",0],["cesto","Cesto de roupa suja","p2",0],
+    ["maquina","Máquina de lavar","p2",0],["amaciante","Amaciante","p3",0]
+  ]},
+  { id:"escritorio", name:"Escritório", items:[
+    ["mesa","Mesa","p1",1],["pc","Computador","p1",1],["ventiladore","Ventilador","p2",1],
+    ["filtrolinha","Filtro de linha / estabilizador","p1",0],["extensaoe","Extensão","p1",0],
+    ["cadeira","Cadeira confortável","p2",0],["lixeirae","Lixeira","p3",0]
+  ]},
+  { id:"sala", name:"Sala", items:[
+    ["mesarefeicao","Mesa e cadeiras para refeição","p2",0],["sofa","Sofá","p3",0],
+    ["tv","TV","p3",0],["rack","Rack","p3",0]
+  ]},
+  { id:"eletrica", name:"Elétrica", items:[
+    ["extensoes","Extensões","p1",0],["filtros","Filtros de linha","p1",0],
+    ["lampadas","Lâmpadas reservas","p1",0],["adaptadores","Adaptadores de tomada","p2",0],
+    ["lanterna","Lanterna","p2",0],["pilhas","Pilhas","p3",0]
+  ]},
+  { id:"ferramentas", name:"Ferramentas", items:[
+    ["vedarosca","Fita veda-rosca","p1",0],["martelo","Martelo","p2",0],
+    ["chaves","Chaves de fenda / Phillips","p2",0],["isolante","Fita isolante","p2",0],
+    ["alicate","Alicate","p3",0],["trena","Trena","p3",0],["parafusos","Parafusos e buchas","p3",0]
+  ]}
+];
+
+const TAG = { p1:"antes", p2:"1º mês", p3:"depois" };
+
+// done:   { "sec:item": {v:true|false, t:ms} }
+// custom: { "sec:cXXX":  {sec, text, p, t:ms, del?:true} }
+// closed: só local — é preferência de tela, não precisa sincronizar
+let state = { done:{}, custom:{}, closed:{} };
+let filter = "all";
+let pin = localStorage.getItem(PINKEY) || "";
+
+/* ---------- armazenamento ---------- */
+
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(LKEY);
+    if(raw) return Object.assign({done:{},custom:{},closed:{}}, JSON.parse(raw));
+    const v1 = localStorage.getItem("mudanca.v1"); // migra a versão só-local
+    if(v1){
+      const old = JSON.parse(v1), out = {done:{},custom:{},closed:old.closed||{}};
+      for(const k of Object.keys(old.checked||{})) out.done[k] = {v:true,t:1};
+      for(const [sec,arr] of Object.entries(old.custom||{}))
+        for(const c of arr) out.custom[c.key] = {sec, text:c.t, p:c.p||"p2", t:1};
+      return out;
+    }
+  }catch(e){ console.warn("cache local ilegível:", e); }
+  return null;
+}
+
+function saveLocal(){
+  try{ localStorage.setItem(LKEY, JSON.stringify(state)); }catch(e){}
+}
+
+function merge(a,b){
+  const out = {done:{},custom:{}};
+  for(const src of [a,b]){
+    if(!src) continue;
+    for(const field of ["done","custom"]){
+      for(const [k,v] of Object.entries(src[field]||{})){
+        const cur = out[field][k];
+        if(!cur || (v.t||0) > (cur.t||0)) out[field][k] = v;
+      }
+    }
+  }
+  return out;
+}
+
+/* ---------- sincronização ---------- */
+
+let pushTimer, syncing = false;
+
+function setSync(kind, txt){
+  const el = document.getElementById("sync");
+  el.className = "sync " + kind;
+  document.getElementById("syncTxt").textContent = txt;
+}
+
+async function api(method, body){
+  const r = await fetch("/api/state", {
+    method,
+    headers: { "Content-Type":"application/json", "x-pin": pin },
+    body: body ? JSON.stringify(body) : undefined,
+    cache: "no-store"
+  });
+  if(r.status === 401){
+    const p = prompt("PIN do checklist:");
+    if(p){ pin = p; localStorage.setItem(PINKEY, p); return api(method, body); }
+    throw new Error("sem PIN");
+  }
+  if(!r.ok){
+    let msg = "erro " + r.status;
+    try{ msg = (await r.json()).error || msg; }catch(e){}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+function adopt(remote){
+  const merged = merge({done:state.done, custom:state.custom}, remote);
+  state.done = merged.done;
+  state.custom = merged.custom;
+  saveLocal();
+  render();
+}
+
+async function push(){
+  clearTimeout(pushTimer);
+  if(syncing) { pushTimer = setTimeout(push, 500); return; }
+  syncing = true;
+  setSync("busy","Salvando…");
+  try{
+    const merged = await api("PUT", {done:state.done, custom:state.custom});
+    adopt(merged);
+    setSync("ok","Sincronizado");
+  }catch(e){
+    setSync("off","Offline — salvo só neste aparelho");
+  }finally{ syncing = false; }
+}
+
+function schedulePush(){
+  saveLocal();
+  setSync("busy","Salvando…");
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(push, 700);
+}
+
+async function pull(){
+  if(syncing) return;
+  syncing = true;
+  setSync("busy","Buscando…");
+  try{
+    adopt(await api("GET"));
+    setSync("ok","Sincronizado");
+  }catch(e){
+    setSync("off","Offline — salvo só neste aparelho");
+  }finally{ syncing = false; }
+}
+
+/* ---------- estado inicial ---------- */
+
+function seed(){
+  DATA.forEach(sec => sec.items.forEach(([id,,,have]) => {
+    if(have) state.done[sec.id+":"+id] = {v:true, t:1};
+  }));
+}
+
+async function boot(){
+  const local = loadLocal();
+  if(local) state = local;
+  render();
+
+  try{
+    const remote = await api("GET");
+    adopt(remote);
+    const vazio = !Object.keys(state.done).length && !Object.keys(state.custom).length;
+    if(vazio){ seed(); await push(); }
+    else if(!remote){ await push(); }
+    else { setSync("ok","Sincronizado"); }
+  }catch(e){
+    if(!local){ seed(); saveLocal(); render(); }
+    setSync("off","Offline — salvo só neste aparelho");
+  }
+}
+
+/* ---------- render ---------- */
+
+function itemsOf(sec){
+  const base = sec.items.map(([id,text,p]) => ({key:sec.id+":"+id, text, p, custom:false}));
+  const extra = Object.entries(state.custom)
+    .filter(([,c]) => c.sec === sec.id && !c.del)
+    .map(([key,c]) => ({key, text:c.text, p:c.p, custom:true}));
+  return base.concat(extra);
+}
+
+const isDone = key => !!(state.done[key] && state.done[key].v);
+
+function visible(it){
+  if(filter === "all") return true;
+  if(filter === "todo") return !isDone(it.key);
+  return it.p === filter;
+}
+
+function render(){
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+  let total = 0, done = 0;
+
+  DATA.forEach(sec => {
+    const items = itemsOf(sec);
+    const secDone = items.filter(i => isDone(i.key)).length;
+    total += items.length; done += secDone;
+
+    const el = document.createElement("section");
+    if(state.closed[sec.id]) el.className = "closed";
+    const pct = items.length ? Math.round(secDone/items.length*100) : 0;
+
+    el.innerHTML = `
+      <button class="sec-head" data-sec="${sec.id}" aria-expanded="${!state.closed[sec.id]}">
+        <span class="caret">▼</span>
+        <h2>${sec.name}</h2>
+        <span class="sec-count">${secDone}/${items.length}</span>
+      </button>
+      <div class="sec-bar"><i style="width:${pct}%"></i></div>
+      <ul class="list"></ul>
+      <div class="add">
+        <input type="text" placeholder="Adicionar item em ${sec.name.toLowerCase()}" data-add="${sec.id}">
+        <button data-addbtn="${sec.id}">Adicionar</button>
+      </div>`;
+
+    const ul = el.querySelector("ul");
+    const shown = items.filter(visible);
+    if(!shown.length){
+      const li = document.createElement("li");
+      li.innerHTML = `<p class="empty">Nada aqui com esse filtro.</p>`;
+      ul.appendChild(li);
+    }
+    shown.forEach(it => {
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <label class="item">
+          <input type="checkbox" data-key="${it.key}" ${isDone(it.key) ? "checked" : ""}>
+          <span class="box"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg></span>
+          <span class="txt">${escapeHtml(it.text)}</span>
+          <span class="tag ${it.p}">${TAG[it.p]}</span>
+          ${it.custom ? `<button class="del" data-del="${it.key}" title="Remover">×</button>` : ""}
+        </label>`;
+      ul.appendChild(li);
+    });
+    app.appendChild(el);
+  });
+
+  document.getElementById("done").textContent = done;
+  document.getElementById("total").textContent = total;
+  document.getElementById("bar").style.width = (total ? done/total*100 : 0) + "%";
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+/* ---------- eventos ---------- */
+
+const app = document.getElementById("app");
+
+app.addEventListener("change", e => {
+  const key = e.target.dataset.key;
+  if(!key) return;
+  state.done[key] = { v: e.target.checked, t: Date.now() };
+  render();
+  schedulePush();
+});
+
+app.addEventListener("click", e => {
+  const head = e.target.closest(".sec-head");
+  if(head){
+    const id = head.dataset.sec;
+    if(state.closed[id]) delete state.closed[id]; else state.closed[id] = true;
+    saveLocal(); render(); return;
+  }
+  const del = e.target.closest("[data-del]");
+  if(del){
+    e.preventDefault();
+    const key = del.dataset.del;
+    state.custom[key] = Object.assign({}, state.custom[key], {del:true, t:Date.now()});
+    delete state.done[key];
+    render(); schedulePush(); return;
+  }
+  const btn = e.target.closest("[data-addbtn]");
+  if(btn) addItem(btn.dataset.addbtn);
+});
+
+app.addEventListener("keydown", e => {
+  if(e.key === "Enter" && e.target.dataset.add){ e.preventDefault(); addItem(e.target.dataset.add); }
+});
+
+function addItem(secId){
+  const input = document.querySelector(`[data-add="${secId}"]`);
+  const text = input.value.trim();
+  if(!text){ input.focus(); return; }
+  const key = secId + ":c" + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+  state.custom[key] = { sec:secId, text, p:"p2", t:Date.now() };
+  input.value = "";
+  render(); schedulePush();
+  const again = document.querySelector(`[data-add="${secId}"]`);
+  if(again) again.focus();
+}
+
+document.getElementById("filters").addEventListener("click", e => {
+  const chip = e.target.closest(".chip");
+  if(!chip) return;
+  filter = chip.dataset.f;
+  document.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c === chip));
+  render();
+});
+
+document.getElementById("syncNow").addEventListener("click", pull);
+
+document.getElementById("reset").addEventListener("click", async () => {
+  if(!confirm("Isso desmarca tudo e apaga os itens que você adicionou, em todos os aparelhos. Continuar?")) return;
+  const t = Date.now();
+  for(const k of Object.keys(state.done)) state.done[k] = {v:false, t};
+  for(const k of Object.keys(state.custom)) state.custom[k] = Object.assign({}, state.custom[k], {del:true, t});
+  render(); await push();
+});
+
+document.addEventListener("visibilitychange", () => { if(!document.hidden) pull(); });
+window.addEventListener("online", pull);
+
+boot();
+</script>
+</body>
+</html>
