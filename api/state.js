@@ -23,10 +23,10 @@ async function getClient() {
 // Cada entrada carrega um timestamp. Vence a mais recente — assim dois
 // aparelhos editando offline não apagam o trabalho um do outro.
 function merge(a, b) {
-  const out = { done: {}, custom: {} };
+  const out = { done: {}, custom: {}, removed: {} };
   for (const src of [a, b]) {
     if (!src) continue;
-    for (const field of ["done", "custom"]) {
+    for (const field of ["done", "custom", "removed"]) {
       for (const [k, v] of Object.entries(src[field] || {})) {
         const cur = out[field][k];
         if (!cur || (v.t || 0) > (cur.t || 0)) out[field][k] = v;
@@ -65,6 +65,7 @@ export default async function handler(req, res) {
       const merged = merge(raw ? JSON.parse(raw) : null, {
         done: body.done,
         custom: body.custom,
+        removed: body.removed,
       });
       await redis.set(REDIS_KEY, JSON.stringify(merged));
       return res.status(200).json(merged);

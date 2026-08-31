@@ -198,7 +198,7 @@ const TAG = { p1:"antes", p2:"1º mês", p3:"depois" };
 // done:   { "sec:item": {v:true|false, t:ms} }
 // custom: { "sec:cXXX":  {sec, text, p, t:ms, del?:true} }
 // closed: só local — é preferência de tela, não precisa sincronizar
-let state = { done:{}, custom:{}, closed:{} };
+let state = { done:{}, custom:{}, closed:{}, removed:{} };
 let filter = "all";
 let pin = localStorage.getItem(PINKEY) || "";
 
@@ -207,7 +207,7 @@ let pin = localStorage.getItem(PINKEY) || "";
 function loadLocal(){
   try{
     const raw = localStorage.getItem(LKEY);
-    if(raw) return Object.assign({done:{},custom:{},closed:{}}, JSON.parse(raw));
+    if(raw) return Object.assign({done:{},custom:{},closed:{},removed:{}}, JSON.parse(raw));
     const v1 = localStorage.getItem("mudanca.v1"); // migra a versão só-local
     if(v1){
       const old = JSON.parse(v1), out = {done:{},custom:{},closed:old.closed||{}};
@@ -225,10 +225,10 @@ function saveLocal(){
 }
 
 function merge(a,b){
-  const out = {done:{},custom:{}};
+  const out = {done:{},custom:{},removed:{}};
   for(const src of [a,b]){
     if(!src) continue;
-    for(const field of ["done","custom"]){
+    for(const field of ["done","custom","removed"]){
       for(const [k,v] of Object.entries(src[field]||{})){
         const cur = out[field][k];
         if(!cur || (v.t||0) > (cur.t||0)) out[field][k] = v;
@@ -269,9 +269,10 @@ async function api(method, body){
 }
 
 function adopt(remote){
-  const merged = merge({done:state.done, custom:state.custom}, remote);
+  const merged = merge({done:state.done, custom:state.custom, removed:state.removed}, remote);
   state.done = merged.done;
   state.custom = merged.custom;
+  state.removed = merged.removed;
   saveLocal();
   render();
 }
@@ -282,7 +283,7 @@ async function push(){
   syncing = true;
   setSync("busy","Salvando…");
   try{
-    const merged = await api("PUT", {done:state.done, custom:state.custom});
+    const merged = await api("PUT", {done:state.done, custom:state.custom, removed:state.removed});
     adopt(merged);
     setSync("ok","Sincronizado");
   }catch(e){
@@ -338,14 +339,18 @@ async function boot(){
 /* ---------- render ---------- */
 
 function itemsOf(sec){
-  const base = sec.items.map(([id,text,p]) => ({key:sec.id+":"+id, text, p, custom:false}));
+  const base = sec.items
+    .map(([id,text,p]) => ({key:sec.id+":"+id, text, p, custom:false}))
+    .filter(it => !isRemoved(it.key));
   const extra = Object.entries(state.custom)
     .filter(([,c]) => c.sec === sec.id && !c.del)
-    .map(([key,c]) => ({key, text:c.text, p:c.p, custom:true}));
+    .map(([key,c]) => ({key, text:c.text, p:c.p, custom:true}))
+    .filter(it => !isRemoved(it.key));
   return base.concat(extra);
 }
 
 const isDone = key => !!(state.done[key] && state.done[key].v);
+const isRemoved = key => !!(state.removed[key] && state.removed[key].v);
 
 function visible(it){
   if(filter === "all") return true;
@@ -395,7 +400,7 @@ function render(){
           <span class="box"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg></span>
           <span class="txt">${escapeHtml(it.text)}</span>
           <span class="tag ${it.p}">${TAG[it.p]}</span>
-          ${it.custom ? `<button class="del" data-del="${it.key}" title="Remover">×</button>` : ""}
+          <button class="del" data-del="${it.key}" title="Remover">×</button>
         </label>`;
       ul.appendChild(li);
     });
@@ -434,7 +439,7 @@ app.addEventListener("click", e => {
   if(del){
     e.preventDefault();
     const key = del.dataset.del;
-    state.custom[key] = Object.assign({}, state.custom[key], {del:true, t:Date.now()});
+    state.removed[key] = { v:true, t:Date.now() };
     delete state.done[key];
     render(); schedulePush(); return;
   }
@@ -469,10 +474,11 @@ document.getElementById("filters").addEventListener("click", e => {
 document.getElementById("syncNow").addEventListener("click", pull);
 
 document.getElementById("reset").addEventListener("click", async () => {
-  if(!confirm("Isso desmarca tudo e apaga os itens que você adicionou, em todos os aparelhos. Continuar?")) return;
+  if(!confirm("Isso desmarca tudo, restaura os itens removidos e apaga os itens que você adicionou, em todos os aparelhos. Continuar?")) return;
   const t = Date.now();
   for(const k of Object.keys(state.done)) state.done[k] = {v:false, t};
   for(const k of Object.keys(state.custom)) state.custom[k] = Object.assign({}, state.custom[k], {del:true, t});
+  for(const k of Object.keys(state.removed)) state.removed[k] = {v:false, t};
   render(); await push();
 });
 
