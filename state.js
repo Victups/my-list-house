@@ -2,37 +2,22 @@
 // PUT  /api/state  -> recebe o estado do aparelho, mescla com o do servidor, devolve o resultado
 //
 // Env vars necessárias:
-//   KV_REST_API_URL / KV_REST_API_TOKEN   (injetadas pela integração Upstash do Vercel)
-//   APP_PIN                                (opcional, mas recomendado)
+//   REDIS_URL   (injetada pela integração Redis do Vercel)
+//   APP_PIN     (opcional, mas recomendado)
+
+import { createClient } from "redis";
 
 const REDIS_KEY = "mudanca:state";
 
-function creds() {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-  return { url, token };
-}
-
-async function redisGet() {
-  const { url, token } = creds();
-  const r = await fetch(`${url}/get/${REDIS_KEY}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-  if (!r.ok) throw new Error(`redis get ${r.status}`);
-  const j = await r.json();
-  if (!j.result) return null;
-  try { return JSON.parse(j.result); } catch { return null; }
-}
-
-async function redisSet(value) {
-  const { url, token } = creds();
-  const r = await fetch(`${url}/set/${REDIS_KEY}`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "text/plain" },
-    body: JSON.stringify(value),
-  });
-  if (!r.ok) throw new Error(`redis set ${r.status}`);
+// Reaproveita a conexão entre invocações na mesma instância — evita abrir
+// um socket novo a cada request.
+let client;
+async function getClient() {
+  if (client && client.isOpen) return client;
+  client = createClient({ url: process.env.REDIS_URL });
+  client.on("error", (e) => console.error("redis:", e.message));
+  await client.connect();
+  return client;
 }
 
 // Cada entrada carrega um timestamp. Vence a mais recente — assim dois
@@ -57,16 +42,18 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "PIN incorreto." });
   }
 
-  const { url, token } = creds();
-  if (!url || !token) {
+  if (!process.env.REDIS_URL) {
     return res.status(500).json({
-      error: "Redis não configurado. Falta KV_REST_API_URL / KV_REST_API_TOKEN nas variáveis do projeto.",
+      error: "Redis não configurado. Falta REDIS_URL nas variáveis do projeto.",
     });
   }
 
   try {
+    const redis = await getClient();
+
     if (req.method === "GET") {
-      return res.status(200).json(await redisGet());
+      const raw = await redis.get(REDIS_KEY);
+      return res.status(200).json(raw ? JSON.parse(raw) : null);
     }
 
     if (req.method === "PUT" || req.method === "POST") {
@@ -74,14 +61,19 @@ export default async function handler(req, res) {
       if (typeof body === "string") body = JSON.parse(body || "{}");
       if (!body || typeof body !== "object") body = {};
 
-      const merged = merge(await redisGet(), { done: body.done, custom: body.custom });
-      await redisSet(merged);
+      const raw = await redis.get(REDIS_KEY);
+      const merged = merge(raw ? JSON.parse(raw) : null, {
+        done: body.done,
+        custom: body.custom,
+      });
+      await redis.set(REDIS_KEY, JSON.stringify(merged));
       return res.status(200).json(merged);
     }
 
     res.setHeader("Allow", "GET, PUT");
     return res.status(405).json({ error: "Método não permitido." });
   } catch (e) {
+    console.error(e);
     return res.status(502).json({ error: "Falha ao falar com o Redis: " + e.message });
   }
 }
